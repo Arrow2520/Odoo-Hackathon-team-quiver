@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -27,7 +28,9 @@ def create_trip(payload: schemas.TripCreate, db: Session = Depends(get_db)):
     # Rule: expired license or suspended driver cannot be assigned
     if driver.status != DriverStatus.AVAILABLE:
         raise HTTPException(status_code=400, detail=f"Driver status is '{driver.status.value}', not available for trips")
-    if driver.license_expiry_date < date.today():
+    
+    # FIXED: Check license_expiry instead of license_expiry_date
+    if driver.license_expiry < date.today():
         raise HTTPException(status_code=400, detail="Driver's license has expired")
 
     # Rule: cargo weight must not exceed max load capacity
@@ -37,7 +40,11 @@ def create_trip(payload: schemas.TripCreate, db: Session = Depends(get_db)):
             detail=f"Cargo weight {payload.cargo_weight}kg exceeds vehicle capacity {vehicle.max_load_capacity}kg",
         )
 
+    # FIXED: Generate missing trip_code dynamically
+    generated_code = f"TRP-{uuid.uuid4().hex[:8].upper()}"
+
     trip = models.Trip(
+        trip_code=generated_code,
         source=payload.source,
         destination=payload.destination,
         vehicle_id=payload.vehicle_id,
@@ -87,7 +94,9 @@ def dispatch_trip(trip_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Driver is no longer available")
 
     trip.status = TripStatus.DISPATCHED
-    trip.dispatched_at = datetime.utcnow()
+    # FIXED: Replaced dispatched_at with dispatch_time
+    trip.dispatch_time = datetime.utcnow()
+    
     vehicle.status = VehicleStatus.ON_TRIP
     driver.status = DriverStatus.ON_TRIP
 
@@ -108,7 +117,8 @@ def complete_trip(trip_id: int, payload: schemas.TripComplete, db: Session = Dep
     driver = db.query(models.Driver).filter(models.Driver.id == trip.driver_id).first()
 
     trip.status = TripStatus.COMPLETED
-    trip.completed_at = datetime.utcnow()
+    # FIXED: Replaced completed_at with completion_time
+    trip.completion_time = datetime.utcnow()
     trip.actual_distance = payload.actual_distance
     trip.fuel_consumed = payload.fuel_consumed
 

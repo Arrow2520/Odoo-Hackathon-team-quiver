@@ -35,7 +35,8 @@ def list_vehicles(
     if status_filter:
         query = query.filter(models.Vehicle.status == status_filter)
     if type_filter:
-        query = query.filter(models.Vehicle.type == type_filter)
+        # FIXED: Changed models.Vehicle.type to models.Vehicle.vehicle_type
+        query = query.filter(models.Vehicle.vehicle_type == type_filter)  
     if region:
         query = query.filter(models.Vehicle.region == region)
     return query.all()

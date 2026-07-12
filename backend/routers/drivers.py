@@ -39,7 +39,7 @@ def get_dispatchable_drivers(db: Session = Depends(get_db)):
     today = date.today()
     return db.query(models.Driver).filter(
         models.Driver.status == DriverStatus.AVAILABLE,
-        models.Driver.license_expiry_date >= today,
+        models.Driver.license_expiry >= today,  # FIXED: license_expiry
     ).all()
 
 

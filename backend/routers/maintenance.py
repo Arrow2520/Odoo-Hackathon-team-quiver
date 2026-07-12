@@ -18,8 +18,10 @@ def create_maintenance(payload: schemas.MaintenanceCreate, db: Session = Depends
     if vehicle.status == VehicleStatus.ON_TRIP:
         raise HTTPException(status_code=400, detail="Cannot send an active On Trip vehicle to maintenance")
 
-    log = models.MaintenanceLog(
+    # FIXED: Replaced MaintenanceLog with Maintenance and added service_type
+    log = models.Maintenance(
         vehicle_id=payload.vehicle_id,
+        service_type=payload.service_type, 
         description=payload.description,
         cost=payload.cost,
         status=MaintenanceStatus.ACTIVE,
@@ -36,28 +38,28 @@ def create_maintenance(payload: schemas.MaintenanceCreate, db: Session = Depends
 
 @router.get("", response_model=List[schemas.MaintenanceResponse])
 def list_maintenance(db: Session = Depends(get_db)):
-    return db.query(models.MaintenanceLog).all()
+    return db.query(models.Maintenance).all()  # FIXED: Maintenance
 
 
 @router.post("/{log_id}/close", response_model=schemas.MaintenanceResponse)
 def close_maintenance(log_id: int, db: Session = Depends(get_db)):
-    log = db.query(models.MaintenanceLog).filter(models.MaintenanceLog.id == log_id).first()
+    log = db.query(models.Maintenance).filter(models.Maintenance.id == log_id).first() # FIXED: Maintenance
     if not log:
         raise HTTPException(status_code=404, detail="Maintenance log not found")
-    if log.status == MaintenanceStatus.CLOSED:
+    if log.status == MaintenanceStatus.COMPLETED: # FIXED: Aligned with Enum COMPLETED instead of CLOSED
         raise HTTPException(status_code=400, detail="Maintenance log already closed")
 
-    log.status = MaintenanceStatus.CLOSED
+    log.status = MaintenanceStatus.COMPLETED
     log.closed_at = datetime.utcnow()
 
     vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == log.vehicle_id).first()
     # Rule: closing maintenance restores vehicle to Available, unless retired
     if vehicle.status != VehicleStatus.RETIRED:
         # Only restore if there's no OTHER active maintenance log on this vehicle
-        other_active = db.query(models.MaintenanceLog).filter(
-            models.MaintenanceLog.vehicle_id == vehicle.id,
-            models.MaintenanceLog.status == MaintenanceStatus.ACTIVE,
-            models.MaintenanceLog.id != log.id,
+        other_active = db.query(models.Maintenance).filter( # FIXED: Maintenance
+            models.Maintenance.vehicle_id == vehicle.id,
+            models.Maintenance.status == MaintenanceStatus.ACTIVE,
+            models.Maintenance.id != log.id,
         ).first()
         if not other_active:
             vehicle.status = VehicleStatus.AVAILABLE

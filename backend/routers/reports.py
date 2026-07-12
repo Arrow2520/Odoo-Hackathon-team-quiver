@@ -21,7 +21,7 @@ def dashboard(
 ):
     vq = db.query(models.Vehicle)
     if vehicle_type:
-        vq = vq.filter(models.Vehicle.type == vehicle_type)
+        vq = vq.filter(models.Vehicle.vehicle_type == vehicle_type)  # FIXED: vehicle_type
     if region:
         vq = vq.filter(models.Vehicle.region == region)
 
@@ -60,9 +60,12 @@ def _compute_vehicle_reports(db: Session) -> List[schemas.VehicleReport]:
         fuel_liters = db.query(func.coalesce(func.sum(models.FuelLog.liters), 0.0)).filter(
             models.FuelLog.vehicle_id == v.id
         ).scalar()
-        maintenance_cost = db.query(func.coalesce(func.sum(models.MaintenanceLog.cost), 0.0)).filter(
-            models.MaintenanceLog.vehicle_id == v.id
+        
+        # FIXED: Changed MaintenanceLog to Maintenance
+        maintenance_cost = db.query(func.coalesce(func.sum(models.Maintenance.cost), 0.0)).filter(
+            models.Maintenance.vehicle_id == v.id
         ).scalar()
+        
         expense_cost = db.query(func.coalesce(func.sum(models.Expense.amount), 0.0)).filter(
             models.Expense.vehicle_id == v.id
         ).scalar()
