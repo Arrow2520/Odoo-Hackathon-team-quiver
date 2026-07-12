@@ -1,0 +1,6 @@
+.expenses-page-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.mb-6 { margin-bottom: var(--spacing-6); }

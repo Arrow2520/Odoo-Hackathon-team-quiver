@@ -1,0 +1,116 @@
+.trips-page-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-6);
+  height: 100%;
+}
+
+.trips-left-panel, .trips-right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.trip-form-container {
+  padding: var(--spacing-6);
+}
+
+.trip-lifecycle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--spacing-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.step {
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.step::before {
+  content: "";
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.step.active { color: var(--status-available); }
+.step.active::before { background-color: var(--status-available); }
+
+.step.pending { color: var(--text-muted); }
+.step.pending::before { background-color: var(--text-muted); }
+
+.step-line {
+  flex: 1;
+  height: 2px;
+  background-color: var(--border-color);
+  margin: 0 var(--spacing-2);
+}
+
+.validation-error-box {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px dashed var(--error);
+  color: var(--error);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.trip-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  overflow-y: auto;
+}
+
+.trip-card {
+  padding: var(--spacing-4);
+}
+
+.trip-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-3);
+}
+
+.trip-id {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.trip-route {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
+  font-size: 1.1rem;
+}
+
+.route-point {
+  font-weight: 500;
+}
+
+.route-arrow {
+  color: var(--text-muted);
+}
+
+.trip-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.mb-4 { margin-bottom: var(--spacing-4); }
+.mt-6 { margin-top: var(--spacing-6); }
+.mt-4 { margin-top: var(--spacing-4); }
+.p-6 { padding: var(--spacing-6); }
+.flex-1 { flex: 1; }

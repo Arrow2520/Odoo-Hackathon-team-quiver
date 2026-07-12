@@ -1,0 +1,26 @@
+.maintenance-page-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--spacing-6);
+}
+
+.maintenance-left-panel, .maintenance-right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.flow-arrow {
+  color: var(--text-muted);
+}
+
+.flow-text {
+  color: var(--text-muted);
+  font-style: italic;
+}

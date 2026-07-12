@@ -1,0 +1,15 @@
+.analytics-page-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-6);
+}
+
+.chart-container {
+  display: flex;
+  flex-direction: column;
+}

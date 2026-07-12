@@ -1,0 +1,12 @@
+.settings-page-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--spacing-6);
+}
+
+.settings-left-panel, .settings-right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.text-sm { font-size: 0.85rem; }
