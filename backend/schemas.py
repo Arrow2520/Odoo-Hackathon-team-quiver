@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from backend.enums import UserRole, VehicleStatus, DriverStatus, TripStatus, MaintenanceStatus, ExpenseType
-
+#
 
 # ---------------- User / Auth ----------------
 class UserCreate(BaseModel):

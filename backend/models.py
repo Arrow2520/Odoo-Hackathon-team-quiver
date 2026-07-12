@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
 from backend.enums import DriverStatus, ExpenseType, MaintenanceStatus, TripStatus, UserRole, VehicleStatus
-
+#
 
 class User(Base):
     __tablename__ = "users"
