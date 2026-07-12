@@ -94,13 +94,13 @@ export const MaintenancePage = () => {
             </thead>
             <tbody>
               {maintenanceRecords.map(r => {
-                const vehicle = vehicles.find(v => v.id === r.vehicleId);
+                const vehicle = vehicles.find(v => v.id === r.vehicle_id);
                 return (
                   <tr key={r.id}>
-                    <td>{vehicle ? vehicle.name : r.vehicleId}</td>
-                    <td>{r.serviceType}</td>
+                    <td>{vehicle ? `${vehicle.registration_number} (${vehicle.model})` : r.vehicle_id}</td>
+                    <td>{r.service_type}</td>
                     <td>{r.cost.toLocaleString()}</td>
-                    <td>{r.date}</td>
+                    <td>{r.opened_at ? new Date(r.opened_at).toLocaleDateString() : '—'}</td>
                     <td>
                       {r.status === MAINTENANCE_STATUS.ACTIVE ? 
                         <span className="badge badge-inshop">In Shop</span> : 

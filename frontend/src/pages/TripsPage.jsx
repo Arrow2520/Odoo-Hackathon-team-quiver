@@ -108,8 +108,8 @@ export const TripsPage = () => {
         
         <div className="trip-cards-container">
           {trips.map(trip => {
-            const vehicle = vehicles.find(v => v.id === trip.vehicleId);
-            const driver = drivers.find(d => d.id === trip.driverId);
+            const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
+            const driver = drivers.find(d => d.id === trip.driver_id);
             
             return (
               <div key={trip.id} className="trip-card card">
@@ -126,7 +126,7 @@ export const TripsPage = () => {
                 
                 <div className="trip-details">
                   <div className="trip-asset">
-                    {vehicle ? vehicle.name : 'Unassigned'} / {driver ? driver.name : 'Unassigned'}
+                    {vehicle ? `${vehicle.registration_number} (${vehicle.model})` : 'Unassigned'} / {driver ? driver.name : 'Unassigned'}
                   </div>
                   <div className="trip-eta">
                     {trip.eta}

@@ -11,6 +11,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import { KPICard } from '../components/common/KPICard';
 import { apiService } from '../services/api';
+import { VEHICLE_STATUS } from '../utils/constants';
 import './AnalyticsPage.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -49,8 +50,8 @@ export const AnalyticsPage = () => {
       const fuelEfficiency = '8.4 km/l'; // Mocked as per original logic
       
       // Calculate Utilization
-      const activeVehicles = vehicles.filter(v => v.status !== 'Retired').length;
-      const onTripVehicles = vehicles.filter(v => v.status === 'On Trip').length;
+      const activeVehicles = vehicles.filter(v => v.status !== VEHICLE_STATUS.RETIRED).length;
+      const onTripVehicles = vehicles.filter(v => v.status === VEHICLE_STATUS.ON_TRIP).length;
       const utilization = activeVehicles > 0 ? Math.round((onTripVehicles / activeVehicles) * 100) : 0;
 
       // Calculate ROI (mocked revenue for demo)

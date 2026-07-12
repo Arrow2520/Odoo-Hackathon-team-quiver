@@ -58,11 +58,11 @@ export const DashboardPage = () => {
 
       // Join trips with driver and vehicle names for display
       const joinedTrips = trips.slice(0, 5).map(trip => {
-        const vehicle = vehicles.find(v => v.id === trip.vehicleId);
-        const driver = drivers.find(d => d.id === trip.driverId);
+        const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
+        const driver = drivers.find(d => d.id === trip.driver_id);
         return {
           ...trip,
-          vehicleName: vehicle ? vehicle.name : '—',
+          vehicleName: vehicle ? `${vehicle.registration_number} (${vehicle.model})` : '—',
           driverName: driver ? driver.name : '—'
         };
       });

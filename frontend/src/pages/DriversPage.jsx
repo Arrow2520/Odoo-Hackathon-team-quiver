@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../components/common/Modal';
 import { DriverForm } from '../components/forms/DriverForm';
 import { StatusBadge } from '../components/common/StatusBadge';
-import { DRIVER_STATUS } from '../utils/constants';
+import { DRIVER_STATUS, STATUS_LABELS } from '../utils/constants';
 import { apiService } from '../services/api';
 
 export const DriversPage = () => {
@@ -74,7 +74,7 @@ export const DriversPage = () => {
         <select className="input mb-0" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="All">All Statuses</option>
           {Object.values(DRIVER_STATUS).map(status => (
-            <option key={status} value={status}>{status}</option>
+            <option key={status} value={status}>{STATUS_LABELS[status] || status}</option>
           ))}
         </select>
       </div>

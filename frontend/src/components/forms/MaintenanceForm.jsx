@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MAINTENANCE_STATUS } from '../../utils/constants';
+import { MAINTENANCE_STATUS, STATUS_LABELS } from '../../utils/constants';
 
 export const MaintenanceForm = ({ onSubmit, availableVehicles }) => {
   const [formData, setFormData] = useState({
@@ -102,7 +102,7 @@ export const MaintenanceForm = ({ onSubmit, availableVehicles }) => {
               value={formData.status} 
               onChange={handleChange}
             >
-              {Object.values(MAINTENANCE_STATUS).map(s => <option key={s} value={s}>{s}</option>)}
+              {Object.values(MAINTENANCE_STATUS).map(s => <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>)}
             </select>
           </div>
         </div>

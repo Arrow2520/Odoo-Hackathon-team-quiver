@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DRIVER_STATUS } from '../../utils/constants';
+import { DRIVER_STATUS, STATUS_LABELS } from '../../utils/constants';
 
 export const DriverForm = ({ initialData, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState(
@@ -103,7 +103,7 @@ export const DriverForm = ({ initialData, onSubmit, onCancel }) => {
           <label>Status</label>
           <select className="input" name="status" value={formData.status} onChange={handleChange}>
             {Object.values(DRIVER_STATUS).map(status => (
-              <option key={status} value={status}>{status}</option>
+              <option key={status} value={status}>{STATUS_LABELS[status] || status}</option>
             ))}
           </select>
         </div>
