@@ -1,11 +1,11 @@
-// Role-Based Access Control (RBAC) Matrix
+// src/utils/constants.js
 export const PERMISSIONS = {
-  'Fleet Manager':     { fleet: 'full', drivers: 'full', trips: 'none', fuelExp: 'none', analytics: 'full' },
-  'Dispatcher':        { fleet: 'view', drivers: 'none', trips: 'full', fuelExp: 'none', analytics: 'none' },
-  'Safety Officer':    { fleet: 'none', drivers: 'full', trips: 'view', fuelExp: 'none', analytics: 'none' },
-  'Financial Analyst': { fleet: 'view', drivers: 'none', trips: 'none', fuelExp: 'full', analytics: 'full' },
+  'fleet_manager':     { fleet: 'full', drivers: 'full', trips: 'none', fuelExp: 'none', analytics: 'full' },
+  'driver':            { fleet: 'view', drivers: 'none', trips: 'full', fuelExp: 'none', analytics: 'none' },
+  'safety_officer':    { fleet: 'none', drivers: 'full', trips: 'view', fuelExp: 'none', analytics: 'none' },
+  'financial_analyst': { fleet: 'view', drivers: 'none', trips: 'none', fuelExp: 'full', analytics: 'full' },
 };
-
+// Keep your existing VEHICLE_STATUS, DRIVER_STATUS, etc. below this
 // Status Enums
 export const VEHICLE_STATUS = {
   AVAILABLE: 'Available',

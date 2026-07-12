@@ -3,12 +3,14 @@ import { TripForm } from '../components/forms/TripForm';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
 import { VEHICLE_STATUS, DRIVER_STATUS, TRIP_STATUS } from '../utils/constants';
+import { apiService } from '../services/api'; // Integrated centralized API client
 import './TripsPage.css';
 
 export const TripsPage = () => {
   const [trips, setTrips] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // For completing a trip
   const [completingTrip, setCompletingTrip] = useState(null);
@@ -19,22 +21,25 @@ export const TripsPage = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setTrips(JSON.parse(localStorage.getItem('trips') || '[]'));
-    setVehicles(JSON.parse(localStorage.getItem('vehicles') || '[]'));
-    setDrivers(JSON.parse(localStorage.getItem('drivers') || '[]'));
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Fetches live database records concurrently via FastAPI endpoints
+      const [tripsData, vehiclesData, driversData] = await Promise.all([
+        apiService.trips.getAll(),
+        apiService.vehicles.getAll(),
+        apiService.drivers.getAll()
+      ]);
+      setTrips(tripsData);
+      setVehicles(vehiclesData);
+      setDrivers(driversData);
+    } catch (error) {
+      console.error("Failed to load operational sync data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const saveData = (newTrips, newVehicles, newDrivers) => {
-    localStorage.setItem('trips', JSON.stringify(newTrips));
-    localStorage.setItem('vehicles', JSON.stringify(newVehicles));
-    localStorage.setItem('drivers', JSON.stringify(newDrivers));
-    setTrips(newTrips);
-    setVehicles(newVehicles);
-    setDrivers(newDrivers);
-  };
-
-  // Helper to check if driver has valid license
   const isLicenseValid = (expiryDate) => {
     return new Date(expiryDate) > new Date();
   };
@@ -42,84 +47,43 @@ export const TripsPage = () => {
   const availableVehicles = vehicles.filter(v => v.status === VEHICLE_STATUS.AVAILABLE);
   const availableDrivers = drivers.filter(d => d.status === DRIVER_STATUS.AVAILABLE && isLicenseValid(d.expiry));
 
-  const handleDispatch = (newTrip) => {
-    // 1. Add new trip
-    const updatedTrips = [newTrip, ...trips];
-    
-    // 2. Update Vehicle Status -> On Trip
-    const updatedVehicles = vehicles.map(v => 
-      v.id === newTrip.vehicleId ? { ...v, status: VEHICLE_STATUS.ON_TRIP } : v
-    );
-    
-    // 3. Update Driver Status -> On Trip
-    const updatedDrivers = drivers.map(d => 
-      d.id === newTrip.driverId ? { ...d, status: DRIVER_STATUS.ON_TRIP } : d
-    );
-    
-    saveData(updatedTrips, updatedVehicles, updatedDrivers);
+  const handleDispatch = async (newTripData) => {
+    try {
+      // Dispatches state data mutation to server. Backend triggers automatic status shifts to 'On Trip'
+      await apiService.trips.create(newTripData);
+      await loadData(); // Atomically updates state lists
+    } catch (error) {
+      alert(`Dispatch failed: ${error.message}`);
+    }
   };
 
-  const handleCancelTrip = (tripId) => {
-    const tripToCancel = trips.find(t => t.id === tripId);
-    if (!tripToCancel) return;
-    
-    // 1. Update trip status
-    const updatedTrips = trips.map(t => 
-      t.id === tripId ? { ...t, status: TRIP_STATUS.CANCELLED, eta: '-' } : t
-    );
-    
-    // 2. Restore vehicle status
-    const updatedVehicles = vehicles.map(v => 
-      v.id === tripToCancel.vehicleId ? { ...v, status: VEHICLE_STATUS.AVAILABLE } : v
-    );
-    
-    // 3. Restore driver status
-    const updatedDrivers = drivers.map(d => 
-      d.id === tripToCancel.driverId ? { ...d, status: DRIVER_STATUS.AVAILABLE } : d
-    );
-    
-    saveData(updatedTrips, updatedVehicles, updatedDrivers);
+  const handleCancelTrip = async (tripId) => {
+    try {
+      // API call execution returns asset status states to 'Available'
+      await apiService.trips.cancel(tripId);
+      await loadData();
+    } catch (error) {
+      alert(`Cancellation failed: ${error.message}`);
+    }
   };
 
-  const handleCompleteTripSubmit = (e) => {
+  const handleCompleteTripSubmit = async (e) => {
     e.preventDefault();
     if (!completingTrip) return;
     
-    // 1. Update trip status
-    const updatedTrips = trips.map(t => 
-      t.id === completingTrip.id ? { ...t, status: TRIP_STATUS.COMPLETED, eta: '-' } : t
-    );
-    
-    // 2. Restore and update vehicle (odometer)
-    const updatedVehicles = vehicles.map(v => 
-      v.id === completingTrip.vehicleId ? { 
-        ...v, 
-        status: VEHICLE_STATUS.AVAILABLE,
-        odometer: Number(endOdometer) // Update odometer
-      } : v
-    );
-    
-    // 3. Restore driver
-    const updatedDrivers = drivers.map(d => 
-      d.id === completingTrip.driverId ? { ...d, status: DRIVER_STATUS.AVAILABLE } : d
-    );
-    
-    // 4. Optionally: Auto-generate fuel log (we'll do this simply)
-    if (fuelConsumed && Number(fuelConsumed) > 0) {
-      const fuelLogs = JSON.parse(localStorage.getItem('fuelLogs') || '[]');
-      const newFuelLog = {
-        id: `F${Date.now()}`,
-        vehicleId: completingTrip.vehicleId,
-        date: new Date().toISOString().split('T')[0],
-        liters: Number(fuelConsumed),
-        cost: Number(fuelConsumed) * 100 // Mock cost
-      };
-      localStorage.setItem('fuelLogs', JSON.stringify([...fuelLogs, newFuelLog]));
+    try {
+      // Submits concluding criteria, completing lifecycles instantly
+      await apiService.trips.complete(completingTrip.id, Number(endOdometer), Number(fuelConsumed) || 0);
+      setCompletingTrip(null);
+      await loadData();
+    } catch (error) {
+      alert(`Failed to complete trip cycle: ${error.message}`);
     }
-    
-    saveData(updatedTrips, updatedVehicles, updatedDrivers);
-    setCompletingTrip(null);
   };
+
+  if (loading) {
+    return <div className="card text-center p-6">Syncing lifecycle streams...</div>;
+  }
 
   return (
     <div className="trips-page-layout">

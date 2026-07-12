@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { KPICard } from '../components/common/KPICard';
 import { StatusBadge } from '../components/common/StatusBadge';
-import { VEHICLE_STATUS, DRIVER_STATUS, TRIP_STATUS, MAINTENANCE_STATUS } from '../utils/constants';
+import { VEHICLE_STATUS, DRIVER_STATUS, TRIP_STATUS } from '../utils/constants';
+import { apiService } from '../services/api';
 import './DashboardPage.css';
 
 export const DashboardPage = () => {
@@ -17,13 +18,21 @@ export const DashboardPage = () => {
   
   const [recentTrips, setRecentTrips] = useState([]);
   const [vehicleDistribution, setVehicleDistribution] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, this would be an API call
-    const loadData = () => {
-      const vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
-      const drivers = JSON.parse(localStorage.getItem('drivers') || '[]');
-      const trips = JSON.parse(localStorage.getItem('trips') || '[]');
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Fetch concurrently from FastAPI
+      const [vehicles, drivers, trips] = await Promise.all([
+        apiService.vehicles.getAll(),
+        apiService.drivers.getAll(),
+        apiService.trips.getAll()
+      ]);
 
       // Compute KPIs
       const activeVehicles = vehicles.filter(v => v.status !== VEHICLE_STATUS.RETIRED).length;
@@ -47,7 +56,7 @@ export const DashboardPage = () => {
         utilization: `${utilization}%`
       });
 
-      // Join trips with driver names and vehicle names for display
+      // Join trips with driver and vehicle names for display
       const joinedTrips = trips.slice(0, 5).map(trip => {
         const vehicle = vehicles.find(v => v.id === trip.vehicleId);
         const driver = drivers.find(d => d.id === trip.driverId);
@@ -60,20 +69,26 @@ export const DashboardPage = () => {
       setRecentTrips(joinedTrips);
 
       // Compute distribution for sidebar
-      const dist = {
+      setVehicleDistribution({
         Available: { count: availableVehicles, percentage: activeVehicles ? (availableVehicles/vehicles.length)*100 : 0, color: 'var(--status-available)' },
         'On Trip': { count: onTripVehicles, percentage: activeVehicles ? (onTripVehicles/vehicles.length)*100 : 0, color: 'var(--status-on-trip)' },
         'In Shop': { count: inMaintenance, percentage: activeVehicles ? (inMaintenance/vehicles.length)*100 : 0, color: 'var(--status-in-shop)' },
         Retired: { count: vehicles.filter(v => v.status === VEHICLE_STATUS.RETIRED).length, percentage: vehicles.length ? (vehicles.filter(v => v.status === VEHICLE_STATUS.RETIRED).length/vehicles.length)*100 : 0, color: 'var(--status-retired)' }
-      };
-      setVehicleDistribution(dist);
-    };
+      });
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadData();
-  }, []);
+  if (loading) {
+    return <div className="card text-center p-6">Loading Dashboard Data...</div>;
+  }
 
   return (
     <div className="dashboard-container">
+      {/* ... The rest of your JSX remains exactly the same ... */}
       <div className="filters-row">
         <span className="filters-label">FILTERS</span>
         <select className="input filter-select">
@@ -121,6 +136,11 @@ export const DashboardPage = () => {
                     <td>{trip.eta}</td>
                   </tr>
                 ))}
+                {recentTrips.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="text-center text-muted py-4">No recent trips.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -137,10 +157,7 @@ export const DashboardPage = () => {
                 <div className="status-bar-track">
                   <div 
                     className="status-bar-fill" 
-                    style={{ 
-                      width: `${data.percentage}%`, 
-                      backgroundColor: data.color 
-                    }}
+                    style={{ width: `${data.percentage}%`, backgroundColor: data.color }}
                   ></div>
                 </div>
               </div>

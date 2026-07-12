@@ -3,26 +3,29 @@ import { Modal } from '../components/common/Modal';
 import { DriverForm } from '../components/forms/DriverForm';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { DRIVER_STATUS } from '../utils/constants';
+import { apiService } from '../services/api';
 
 export const DriversPage = () => {
   const [drivers, setDrivers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
-  
   const [statusFilter, setStatusFilter] = useState('All');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDrivers();
   }, []);
 
-  const loadDrivers = () => {
-    const data = JSON.parse(localStorage.getItem('drivers') || '[]');
-    setDrivers(data);
-  };
-
-  const saveDrivers = (data) => {
-    localStorage.setItem('drivers', JSON.stringify(data));
-    setDrivers(data);
+  const loadDrivers = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.drivers.getAll();
+      setDrivers(data);
+    } catch (error) {
+      console.error("Failed to fetch drivers:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAdd = () => {
@@ -35,62 +38,56 @@ export const DriversPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (driverData) => {
-    let updatedDrivers;
-    if (editingDriver) {
-      updatedDrivers = drivers.map(d => d.id === driverData.id ? driverData : d);
-    } else {
-      updatedDrivers = [...drivers, driverData];
+  const handleSave = async (driverData) => {
+    try {
+      if (editingDriver) {
+        // Assuming your backend has a PUT route, otherwise handle appropriately
+        alert("Edit functionality requires the PUT endpoint wired in api.js");
+      } else {
+        await apiService.drivers.create(driverData);
+      }
+      await loadDrivers();
+      setIsModalOpen(false);
+    } catch (error) {
+      alert(`Failed to save driver: ${error.message}`);
     }
-    
-    saveDrivers(updatedDrivers);
-    setIsModalOpen(false);
   };
 
-  // Check license expiry
-  const isExpired = (expiryDate) => {
-    return new Date(expiryDate) < new Date();
+  const isLicenseValid = (expiryDate) => {
+    return new Date(expiryDate) > new Date();
   };
 
-  // Filter logic
-  const filteredDrivers = drivers.filter(d => {
-    return statusFilter === 'All' || d.status === statusFilter;
-  });
+  const filteredDrivers = drivers.filter(d => 
+    statusFilter === 'All' || d.status === statusFilter
+  );
+
+  if (loading) return <div className="card text-center p-6">Loading drivers...</div>;
 
   return (
     <div className="page-container">
       <div className="page-header flex justify-between items-center">
-        <h2>Drivers & Safety Profiles</h2>
+        <h2>Driver Management</h2>
         <button className="btn-primary" onClick={handleAdd}>+ Add Driver</button>
       </div>
 
-      <div className="filters-bar card flex gap-2">
-        <button 
-          className={`btn-secondary ${statusFilter === 'All' ? 'active-filter' : ''}`}
-          onClick={() => setStatusFilter('All')}
-        >
-          All
-        </button>
-        {Object.values(DRIVER_STATUS).map(status => (
-          <button 
-            key={status}
-            className={`btn-secondary ${statusFilter === status ? 'active-filter' : ''}`}
-            onClick={() => setStatusFilter(status)}
-          >
-            {status}
-          </button>
-        ))}
+      <div className="filters-bar card flex gap-4 items-center">
+        <select className="input mb-0" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="All">All Statuses</option>
+          {Object.values(DRIVER_STATUS).map(status => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
       </div>
 
       <div className="card table-container">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Driver Name</th>
-              <th>License No.</th>
+              <th>ID</th>
+              <th>Name</th>
+              <th>License</th>
               <th>Category</th>
               <th>Expiry</th>
-              <th>Contact</th>
               <th>Safety Score</th>
               <th>Status</th>
               <th>Actions</th>
@@ -98,23 +95,25 @@ export const DriversPage = () => {
           </thead>
           <tbody>
             {filteredDrivers.map(d => {
-              const expired = isExpired(d.expiry);
+              const validLicense = isLicenseValid(d.expiry);
               return (
                 <tr key={d.id}>
+                  <td className="font-mono">{d.id}</td>
                   <td className="font-semibold">{d.name}</td>
                   <td className="font-mono">{d.license}</td>
                   <td>{d.category}</td>
-                  <td style={{ color: expired ? 'var(--error)' : 'inherit' }}>
-                    {d.expiry} {expired && <strong>EXPIRED</strong>}
-                  </td>
-                  <td>{d.contact}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '50px', height: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '3px' }}>
+                    <span style={{ color: validLicense ? 'inherit' : 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {d.expiry} {!validLicense && '⚠️'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <div style={{ width: '60px', height: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
                         <div style={{ 
                           width: `${d.safety}%`, 
                           height: '100%', 
-                          backgroundColor: d.safety > 85 ? 'var(--status-available)' : (d.safety > 70 ? 'var(--status-in-shop)' : 'var(--error)'),
+                          backgroundColor: d.safety > 80 ? 'var(--status-available)' : d.safety > 60 ? 'var(--status-in-shop)' : 'var(--error)',
                           borderRadius: '3px'
                         }}></div>
                       </div>
@@ -137,10 +136,6 @@ export const DriversPage = () => {
         </table>
       </div>
 
-      <div className="rule-note mt-4">
-        Expired license or Suspended status → blocked from trip assignment
-      </div>
-
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
@@ -152,16 +147,6 @@ export const DriversPage = () => {
           onCancel={() => setIsModalOpen(false)}
         />
       </Modal>
-      
-      {/* Specific inline styles for active filter since we re-use fleet css */}
-      <style>{`
-        .active-filter {
-          background-color: var(--border-color);
-          border-color: var(--accent-gold);
-          color: var(--accent-gold);
-        }
-        .font-semibold { font-weight: 600; }
-      `}</style>
     </div>
   );
 };

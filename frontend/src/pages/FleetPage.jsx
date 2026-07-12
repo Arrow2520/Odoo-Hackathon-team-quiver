@@ -3,6 +3,7 @@ import { Modal } from '../components/common/Modal';
 import { VehicleForm } from '../components/forms/VehicleForm';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { VEHICLE_STATUS } from '../utils/constants';
+import { apiService } from '../services/api';
 import './FleetPage.css';
 
 export const FleetPage = () => {
@@ -19,14 +20,13 @@ export const FleetPage = () => {
     loadVehicles();
   }, []);
 
-  const loadVehicles = () => {
-    const data = JSON.parse(localStorage.getItem('vehicles') || '[]');
-    setVehicles(data);
-  };
-
-  const saveVehicles = (data) => {
-    localStorage.setItem('vehicles', JSON.stringify(data));
-    setVehicles(data);
+  const loadVehicles = async () => {
+    try {
+      const data = await apiService.vehicles.getAll();
+      setVehicles(data);
+    } catch (error) {
+      console.error("Failed to fetch vehicles:", error);
+    }
   };
 
   const handleAdd = () => {
@@ -39,72 +39,65 @@ export const FleetPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (vehicleData) => {
-    let updatedVehicles;
-    if (editingVehicle) {
-      updatedVehicles = vehicles.map(v => v.id === vehicleData.id ? vehicleData : v);
-    } else {
-      // Check for duplicate ID
-      if (vehicles.some(v => v.id === vehicleData.id)) {
-        alert('Registration number must be unique!');
-        return;
+  const handleSave = async (vehicleData) => {
+    try {
+      if (editingVehicle) {
+        // Note: Assuming your FastAPI has a PUT endpoint, we would normally call apiService.vehicles.update here.
+        // For the hackathon MVP, if you only have create, you might just do a create or you can add the PUT request to api.js.
+        alert("Edit functionality requires the PUT endpoint wired in api.js");
+      } else {
+        await apiService.vehicles.create(vehicleData);
       }
-      updatedVehicles = [...vehicles, vehicleData];
+      
+      // Refresh the table from the database
+      await loadVehicles();
+      setIsModalOpen(false);
+    } catch (error) {
+      alert(`Failed to save vehicle: ${error.message}`);
     }
-    
-    saveVehicles(updatedVehicles);
-    setIsModalOpen(false);
   };
 
   // Filter logic
   const filteredVehicles = vehicles.filter(v => {
     const matchesType = typeFilter === 'All' || v.type === typeFilter;
     const matchesStatus = statusFilter === 'All' || v.status === statusFilter;
-    const matchesSearch = v.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          v.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          v.id.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesType && matchesStatus && matchesSearch;
   });
 
   return (
     <div className="page-container">
       <div className="page-header flex justify-between items-center">
-        <h2>Vehicle Registry</h2>
+        <h2>Fleet Management</h2>
         <button className="btn-primary" onClick={handleAdd}>+ Add Vehicle</button>
       </div>
 
-      <div className="filters-bar card">
-        <div className="flex gap-4">
-          <div className="input-group mb-0">
-            <select 
-              className="input" 
-              value={typeFilter} 
-              onChange={e => setTypeFilter(e.target.value)}
-            >
-              <option value="All">Type: All</option>
-              <option value="Van">Van</option>
-              <option value="Truck">Truck</option>
-              <option value="Mini">Mini</option>
-            </select>
-          </div>
-          <div className="input-group mb-0">
-            <select 
-              className="input" 
-              value={statusFilter} 
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <option value="All">Status: All</option>
-              {Object.values(VEHICLE_STATUS).map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="input-group mb-0" style={{ flex: 1 }}>
-            <input 
-              type="text" 
-              className="input w-full" 
-              placeholder="Search reg. no or name..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
+      <div className="filters-bar card flex justify-between items-center">
+        <div className="flex gap-4 items-center">
+          <select className="input mb-0" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="All">All Types</option>
+            <option value="Van">Van</option>
+            <option value="Truck">Truck</option>
+            <option value="Mini">Mini</option>
+          </select>
+
+          <select className="input mb-0" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="All">All Statuses</option>
+            {Object.values(VEHICLE_STATUS).map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <input 
+            type="text" 
+            className="input mb-0" 
+            placeholder="Search ID or Name..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
@@ -112,8 +105,8 @@ export const FleetPage = () => {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Reg. No.</th>
-              <th>Name / Model</th>
+              <th>Reg No.</th>
+              <th>Name</th>
               <th>Type</th>
               <th>Capacity</th>
               <th>Odometer</th>

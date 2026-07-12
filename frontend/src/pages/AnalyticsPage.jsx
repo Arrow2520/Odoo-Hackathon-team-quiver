@@ -10,17 +10,10 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { KPICard } from '../components/common/KPICard';
+import { apiService } from '../services/api';
 import './AnalyticsPage.css';
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export const AnalyticsPage = () => {
   const [stats, setStats] = useState({
@@ -31,57 +24,65 @@ export const AnalyticsPage = () => {
   });
 
   const [topCostliest, setTopCostliest] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    const vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
-    const fuelLogs = JSON.parse(localStorage.getItem('fuelLogs') || '[]');
-    const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-    const maintenance = JSON.parse(localStorage.getItem('maintenance') || '[]');
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [vehicles, fuelLogs, expenses, maintenance] = await Promise.all([
+        apiService.vehicles.getAll(),
+        apiService.fuel.getAll(),
+        apiService.expenses.getAll(),
+        apiService.maintenance.getAll()
+      ]);
 
-    // Calculate Operational Cost
-    const totalFuelCost = fuelLogs.reduce((sum, f) => sum + Number(f.cost), 0);
-    const totalTollOther = expenses.reduce((sum, e) => sum + Number(e.toll) + Number(e.other), 0);
-    const totalMaintCost = maintenance.reduce((sum, m) => sum + Number(m.cost), 0);
-    const totalOpCost = totalFuelCost + totalTollOther + totalMaintCost;
+      // Calculate Operational Cost
+      const totalFuelCost = fuelLogs.reduce((sum, f) => sum + Number(f.cost), 0);
+      const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || Number(e.toll) || 0), 0);
+      const totalMaintCost = maintenance.reduce((sum, m) => sum + Number(m.cost), 0);
+      const totalOpCost = totalFuelCost + totalExpenses + totalMaintCost;
 
-    // Calculate Fuel Efficiency (Total Dist / Total Liters)
-    // For simplicity, we just use a mocked 8.4 from requirements since we don't track full distance history in seed easily
-    const fuelEfficiency = '8.4 km/l';
-    
-    // Calculate Utilization
-    const activeVehicles = vehicles.filter(v => v.status !== 'Retired').length;
-    const onTripVehicles = vehicles.filter(v => v.status === 'On Trip').length;
-    const utilization = activeVehicles > 0 ? Math.round((onTripVehicles / activeVehicles) * 100) : 0;
+      const fuelEfficiency = '8.4 km/l'; // Mocked as per original logic
+      
+      // Calculate Utilization
+      const activeVehicles = vehicles.filter(v => v.status !== 'Retired').length;
+      const onTripVehicles = vehicles.filter(v => v.status === 'On Trip').length;
+      const utilization = activeVehicles > 0 ? Math.round((onTripVehicles / activeVehicles) * 100) : 0;
 
-    // Calculate ROI
-    // ROI = (Revenue - OpCost) / AcqCost. Mocking revenue as OpCost * 1.5 for demo
-    const mockRevenue = totalOpCost * 1.5;
-    const totalAcqCost = vehicles.reduce((sum, v) => sum + Number(v.acqCost), 0);
-    const roi = totalAcqCost > 0 ? (((mockRevenue - totalOpCost) / totalAcqCost) * 100).toFixed(1) : 0;
+      // Calculate ROI (mocked revenue for demo)
+      const mockRevenue = totalOpCost * 1.5;
+      const totalAcqCost = vehicles.reduce((sum, v) => sum + Number(v.acquisition_cost || v.acqCost), 0);
+      const roi = totalAcqCost > 0 ? (((mockRevenue - totalOpCost) / totalAcqCost) * 100).toFixed(1) : 0;
 
-    setStats({
-      fuelEfficiency,
-      utilization: `${utilization}%`,
-      opCost: totalOpCost.toLocaleString(),
-      roi: `${roi}%`,
-    });
+      setStats({
+        fuelEfficiency,
+        utilization: `${utilization}%`,
+        opCost: totalOpCost.toLocaleString(),
+        roi: `${roi}%`,
+      });
 
-    // Calculate Top Costliest Vehicles
-    const vehicleCosts = vehicles.map(v => {
-      const vFuel = fuelLogs.filter(f => f.vehicleId === v.id).reduce((s, f) => s + Number(f.cost), 0);
-      const vExp = expenses.filter(e => e.vehicleId === v.id).reduce((s, e) => s + Number(e.toll) + Number(e.other), 0);
-      const vMaint = maintenance.filter(m => m.vehicleId === v.id).reduce((s, m) => s + Number(m.cost), 0);
-      return {
-        name: v.name,
-        cost: vFuel + vExp + vMaint
-      };
-    }).sort((a, b) => b.cost - a.cost).slice(0, 5);
+      // Calculate Top Costliest Vehicles
+      const vehicleCosts = vehicles.map(v => {
+        const vId = v.id;
+        const vFuel = fuelLogs.filter(f => (f.vehicle_id || f.vehicleId) === vId).reduce((s, f) => s + Number(f.cost), 0);
+        const vExp = expenses.filter(e => (e.vehicle_id || e.vehicleId) === vId).reduce((s, e) => s + (Number(e.amount) || Number(e.toll) || 0), 0);
+        const vMaint = maintenance.filter(m => (m.vehicle_id || m.vehicleId) === vId).reduce((s, m) => s + Number(m.cost), 0);
+        return {
+          name: v.registration_number || v.name,
+          cost: vFuel + vExp + vMaint
+        };
+      }).sort((a, b) => b.cost - a.cost).slice(0, 5);
 
-    setTopCostliest(vehicleCosts);
+      setTopCostliest(vehicleCosts);
+    } catch (error) {
+      console.error("Failed to load analytics data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const revenueData = {
@@ -102,11 +103,8 @@ export const AnalyticsPage = () => {
         label: 'Operational Cost',
         data: topCostliest.map(v => v.cost),
         backgroundColor: [
-          'rgba(239, 68, 68, 0.8)',   // Red
-          'rgba(249, 115, 22, 0.8)',  // Orange
-          'rgba(59, 130, 246, 0.8)',  // Blue
-          'rgba(34, 197, 94, 0.8)',   // Green
-          'rgba(168, 85, 247, 0.8)',  // Purple
+          'rgba(239, 68, 68, 0.8)', 'rgba(249, 115, 22, 0.8)', 'rgba(59, 130, 246, 0.8)', 
+          'rgba(34, 197, 94, 0.8)', 'rgba(168, 85, 247, 0.8)'
         ],
       },
     ],
@@ -115,24 +113,10 @@ export const AnalyticsPage = () => {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-    },
+    plugins: { legend: { display: false } },
     scales: {
-      y: {
-        grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
-        },
-        ticks: { color: '#94a3b8' }
-      },
-      x: {
-        grid: {
-          display: false,
-        },
-        ticks: { color: '#94a3b8' }
-      },
+      y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#94a3b8' } },
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
     },
   };
 
@@ -140,16 +124,12 @@ export const AnalyticsPage = () => {
     ...chartOptions,
     indexAxis: 'y',
     scales: {
-      x: {
-        grid: { color: 'rgba(255, 255, 255, 0.1)' },
-        ticks: { color: '#94a3b8' }
-      },
-      y: {
-        grid: { display: false },
-        ticks: { color: '#94a3b8' }
-      },
+      x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#94a3b8' } },
+      y: { grid: { display: false }, ticks: { color: '#94a3b8' } },
     }
   };
+
+  if (loading) return <div className="card text-center p-6">Generating Analytics...</div>;
 
   return (
     <div className="analytics-page-layout">

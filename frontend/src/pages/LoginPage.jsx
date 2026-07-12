@@ -4,45 +4,40 @@ import { useAuth } from '../hooks/useAuth';
 import './LoginPage.css';
 
 export const LoginPage = () => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('Dispatcher');
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('fleet_manager');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const result = await login(email, password);
+    let result;
+    if (isRegistering) {
+      result = await register({ 
+        email, 
+        password, 
+        role, 
+        full_name: fullName 
+      });
+    } else {
+      result = await login(email, password);
+    }
     
     if (result.success) {
       navigate('/');
     } else {
-      setError(result.message || 'Failed authentication');
+      setError(result.message);
     }
-    
     setLoading(false);
-  };
-
-  // Pre-fill helper based on role selection
-  const handleRoleChange = (e) => {
-    const selectedRole = e.target.value;
-    setRole(selectedRole);
-    
-    // Auto-fill for ease of testing based on seed data
-    if (selectedRole === 'Dispatcher') setEmail('raven.k@transitops.in');
-    if (selectedRole === 'Fleet Manager') setEmail('fleet@transitops.in');
-    if (selectedRole === 'Safety Officer') setEmail('safety@transitops.in');
-    if (selectedRole === 'Financial Analyst') setEmail('finance@transitops.in');
-    setPassword('password123');
   };
 
   return (
@@ -54,46 +49,55 @@ export const LoginPage = () => {
           <p className="tagline">Smart Transport Operations Platform</p>
         </div>
         
-        <div className="login-roles-info">
-          <h3>One login, four roles:</h3>
-          <ul>
-            <li><span className="dot"></span>Fleet Manager</li>
-            <li><span className="dot"></span>Dispatcher</li>
-            <li><span className="dot"></span>Safety Officer</li>
-            <li><span className="dot"></span>Financial Analyst</li>
-          </ul>
+        <div className="login-roles-info mt-6 text-muted">
+          <p>No more spreadsheets. Manage fleets, dispatch trips, and track maintenance all in one place.</p>
         </div>
       </div>
       
       <div className="login-right">
         <div className="login-form-container">
-          <h2>Sign in to your account</h2>
-          <p className="subtitle">Enter your credentials to continue</p>
+          <h2>{isRegistering ? 'Create Account' : 'Welcome Back'}</h2>
+          <p className="text-muted mb-6">
+            {isRegistering ? 'Register to manage your fleet operations.' : 'Sign in to access your dashboard.'}
+          </p>
           
-          {error && (
-            <div className="error-box">
-              <span className="error-icon">×</span>
-              {error}
-            </div>
-          )}
+          {error && <div className="error-box mb-4">{error}</div>}
           
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleSubmit}>
+            {isRegistering && (
+              <>
+                <div className="input-group">
+                  <label>Full Name</label>
+                  <input 
+                    type="text" 
+                    className="input" 
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="input-group">
+                  <label>System Role</label>
+                  <select 
+                    className="input" 
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                  >
+                    <option value="fleet_manager">Fleet Manager</option>
+                    <option value="driver">Driver / Dispatcher</option>
+                    <option value="safety_officer">Safety Officer</option>
+                    <option value="financial_analyst">Financial Analyst</option>
+                  </select>
+                </div>
+              </>
+            )}
+
             <div className="input-group">
-              <label>Role (RBAC Demo)</label>
-              <select className="input" value={role} onChange={handleRoleChange}>
-                <option value="Dispatcher">Dispatcher</option>
-                <option value="Fleet Manager">Fleet Manager</option>
-                <option value="Safety Officer">Safety Officer</option>
-                <option value="Financial Analyst">Financial Analyst</option>
-              </select>
-            </div>
-            
-            <div className="input-group">
-              <label>Email</label>
+              <label>Work Email</label>
               <input 
                 type="email" 
                 className="input" 
-                placeholder="raven.k@transitops.in"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -105,38 +109,32 @@ export const LoginPage = () => {
               <input 
                 type="password" 
                 className="input" 
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength="6"
               />
             </div>
             
-            <div className="login-options">
-              <label className="checkbox-label">
-                <input type="checkbox" defaultChecked />
-                <span>Remember me</span>
-              </label>
-              <a href="#" className="forgot-password">Forgot password?</a>
-            </div>
-            
-            <button 
-              type="submit" 
-              className="btn-primary login-btn"
-              disabled={loading}
-            >
-              {loading ? 'Signing In...' : 'Sign In'}
+            <button type="submit" className="btn-primary login-btn" disabled={loading}>
+              {loading ? 'Processing...' : (isRegistering ? 'Register & Sign In' : 'Sign In')}
             </button>
           </form>
-          
-          <div className="rbac-notes">
-            <p>Access is scoped by role after login:</p>
-            <ul>
-              <li>Fleet Manager → Fleet, Maintenance</li>
-              <li>Dispatcher → Dashboard, Trips</li>
-              <li>Safety Officer → Drivers, Compliance</li>
-              <li>Financial Analyst → Fuel & Expenses, Analytics</li>
-            </ul>
+
+          <div className="text-center mt-4">
+            <span className="text-muted">
+              {isRegistering ? 'Already have an account? ' : 'Need an account? '}
+            </span>
+            <button 
+              type="button" 
+              onClick={() => {
+                setIsRegistering(!isRegistering);
+                setError('');
+              }} 
+              style={{ background: 'none', border: 'none', color: 'var(--status-on-trip)', cursor: 'pointer', fontWeight: 600 }}
+            >
+              {isRegistering ? 'Sign In' : 'Register'}
+            </button>
           </div>
         </div>
       </div>

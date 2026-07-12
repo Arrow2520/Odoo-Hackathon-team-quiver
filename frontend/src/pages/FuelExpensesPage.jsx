@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { exportToCSV } from '../utils/csvExport';
+import { apiService } from '../services/api';
 import './FuelExpensesPage.css';
 
 export const FuelExpensesPage = () => {
@@ -7,41 +8,49 @@ export const FuelExpensesPage = () => {
   const [expenses, setExpenses] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [maintenance, setMaintenance] = useState([]);
-  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setFuelLogs(JSON.parse(localStorage.getItem('fuelLogs') || '[]'));
-    setExpenses(JSON.parse(localStorage.getItem('expenses') || '[]'));
-    setVehicles(JSON.parse(localStorage.getItem('vehicles') || '[]'));
-    setMaintenance(JSON.parse(localStorage.getItem('maintenance') || '[]'));
-    setTrips(JSON.parse(localStorage.getItem('trips') || '[]'));
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Fetch all required data concurrently from the backend
+      const [fuelData, expData, vehData, maintData] = await Promise.all([
+        apiService.fuel.getAll(),
+        apiService.expenses.getAll(),
+        apiService.vehicles.getAll(),
+        apiService.maintenance.getAll()
+      ]);
+      setFuelLogs(fuelData);
+      setExpenses(expData);
+      setVehicles(vehData);
+      setMaintenance(maintData);
+    } catch (error) {
+      console.error("Failed to load expenses data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getVehicleName = (id) => {
-    const v = vehicles.find(v => v.id === id);
-    return v ? v.name : id;
+    // Assuming backend returns an integer ID, adjust type checking if necessary
+    const v = vehicles.find(v => String(v.id) === String(id));
+    return v ? v.registration_number || v.name : id;
   };
 
   const getMaintenanceTotal = (vehicleId) => {
     return maintenance
-      .filter(m => m.vehicleId === vehicleId)
+      .filter(m => String(m.vehicle_id || m.vehicleId) === String(vehicleId))
       .reduce((sum, m) => sum + Number(m.cost), 0);
-  };
-
-  const getFuelTotal = (vehicleId) => {
-    return fuelLogs
-      .filter(f => f.vehicleId === vehicleId)
-      .reduce((sum, f) => sum + Number(f.cost), 0);
   };
 
   const handleExportFuel = () => {
     const data = fuelLogs.map(log => ({
-      'Vehicle': getVehicleName(log.vehicleId),
-      'Date': log.date,
+      'Vehicle': getVehicleName(log.vehicle_id || log.vehicleId),
+      'Date': log.fuel_date || log.date,
       'Liters': log.liters,
       'Cost': log.cost
     }));
@@ -50,14 +59,15 @@ export const FuelExpensesPage = () => {
 
   const handleExportExpenses = () => {
     const data = expenses.map(exp => ({
-      'Trip': exp.tripId,
-      'Vehicle': getVehicleName(exp.vehicleId),
-      'Toll': exp.toll,
-      'Other': exp.other,
-      'Linked Maintenance': getMaintenanceTotal(exp.vehicleId)
+      'Trip': exp.trip_id || exp.tripId || '-',
+      'Vehicle': getVehicleName(exp.vehicle_id || exp.vehicleId),
+      'Amount': exp.amount || exp.toll,
+      'Linked Maintenance': getMaintenanceTotal(exp.vehicle_id || exp.vehicleId)
     }));
-    exportToCSV(data, ['Trip', 'Vehicle', 'Toll', 'Other', 'Linked Maintenance'], 'expenses.csv');
+    exportToCSV(data, ['Trip', 'Vehicle', 'Amount', 'Linked Maintenance'], 'expenses.csv');
   };
+
+  if (loading) return <div className="card text-center p-6">Loading Financial Data...</div>;
 
   return (
     <div className="expenses-page-layout">
@@ -70,7 +80,6 @@ export const FuelExpensesPage = () => {
           <h3 style={{ margin: 0 }}>FUEL LOGS</h3>
           <div className="flex gap-2">
             <button className="btn-secondary btn-sm" onClick={handleExportFuel}>CSV Export</button>
-            <button className="btn-primary btn-sm">+ Add Fuel Log</button>
           </div>
         </div>
         
@@ -86,8 +95,8 @@ export const FuelExpensesPage = () => {
           <tbody>
             {fuelLogs.map(log => (
               <tr key={log.id}>
-                <td>{getVehicleName(log.vehicleId)}</td>
-                <td>{log.date}</td>
+                <td>{getVehicleName(log.vehicle_id || log.vehicleId)}</td>
+                <td>{log.fuel_date || log.date}</td>
                 <td>{log.liters} L</td>
                 <td>{log.cost?.toLocaleString()}</td>
               </tr>
@@ -103,36 +112,33 @@ export const FuelExpensesPage = () => {
 
       <div className="card table-container mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 style={{ margin: 0 }}>OTHER EXPENSES (TOLL / MISC)</h3>
+          <h3 style={{ margin: 0 }}>OTHER EXPENSES (TOLLS / MISC)</h3>
           <div className="flex gap-2">
             <button className="btn-secondary btn-sm" onClick={handleExportExpenses}>CSV Export</button>
-            <button className="btn-primary btn-sm">+ Add Expense</button>
           </div>
         </div>
         
         <table className="data-table">
           <thead>
             <tr>
-              <th>Trip</th>
+              <th>Trip ID</th>
               <th>Vehicle</th>
-              <th>Toll</th>
-              <th>Other</th>
+              <th>Amount</th>
               <th>Maint. (Linked)</th>
             </tr>
           </thead>
           <tbody>
             {expenses.map(exp => (
               <tr key={exp.id}>
-                <td>{exp.tripId}</td>
-                <td>{getVehicleName(exp.vehicleId)}</td>
-                <td>{exp.toll?.toLocaleString() || 0}</td>
-                <td>{exp.other?.toLocaleString() || 0}</td>
-                <td>{getMaintenanceTotal(exp.vehicleId).toLocaleString()}</td>
+                <td>{exp.trip_id || exp.tripId || 'N/A'}</td>
+                <td>{getVehicleName(exp.vehicle_id || exp.vehicleId)}</td>
+                <td>{(exp.amount || exp.toll)?.toLocaleString() || 0}</td>
+                <td>{getMaintenanceTotal(exp.vehicle_id || exp.vehicleId).toLocaleString()}</td>
               </tr>
             ))}
             {expenses.length === 0 && (
               <tr>
-                <td colSpan="5" className="text-center text-muted py-4">No expenses found.</td>
+                <td colSpan="4" className="text-center text-muted py-4">No expenses found.</td>
               </tr>
             )}
           </tbody>

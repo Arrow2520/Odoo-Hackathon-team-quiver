@@ -2,119 +2,94 @@ import { useState, useEffect } from 'react';
 import { MaintenanceForm } from '../components/forms/MaintenanceForm';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { VEHICLE_STATUS, MAINTENANCE_STATUS } from '../utils/constants';
+import { apiService } from '../services/api';
 import './MaintenancePage.css';
 
 export const MaintenancePage = () => {
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setMaintenanceRecords(JSON.parse(localStorage.getItem('maintenance') || '[]'));
-    setVehicles(JSON.parse(localStorage.getItem('vehicles') || '[]'));
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [maintData, vehData] = await Promise.all([
+        apiService.maintenance.getAll(),
+        apiService.vehicles.getAll()
+      ]);
+      setMaintenanceRecords(maintData);
+      setVehicles(vehData);
+    } catch (error) {
+      console.error("Failed to load maintenance data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const saveData = (newRecords, newVehicles) => {
-    localStorage.setItem('maintenance', JSON.stringify(newRecords));
-    localStorage.setItem('vehicles', JSON.stringify(newVehicles));
-    setMaintenanceRecords(newRecords);
-    setVehicles(newVehicles);
-  };
-
-  // Exclude retired vehicles from the dropdown
   const availableVehicles = vehicles.filter(v => v.status !== VEHICLE_STATUS.RETIRED);
 
-  const handleAddRecord = (newRecord) => {
-    const updatedRecords = [newRecord, ...maintenanceRecords];
-    
-    // Auto-update vehicle status based on maintenance status
-    const updatedVehicles = vehicles.map(v => {
-      if (v.id === newRecord.vehicleId && v.status !== VEHICLE_STATUS.RETIRED) {
-        if (newRecord.status === MAINTENANCE_STATUS.ACTIVE) {
-          return { ...v, status: VEHICLE_STATUS.IN_SHOP };
-        } else if (newRecord.status === MAINTENANCE_STATUS.COMPLETED) {
-          // If a maintenance record is created as completed, just ensure the vehicle is available
-          // if it was previously in shop (this handles the edge case of creating historical records)
-          if (v.status === VEHICLE_STATUS.IN_SHOP) {
-             return { ...v, status: VEHICLE_STATUS.AVAILABLE };
-          }
-        }
-      }
-      return v;
-    });
-    
-    saveData(updatedRecords, updatedVehicles);
+  const handleAddRecord = async (newRecord) => {
+    try {
+      await apiService.maintenance.create(newRecord);
+      await loadData(); // Refresh to get updated vehicle statuses from backend
+    } catch (error) {
+      alert(`Failed to create maintenance log: ${error.message}`);
+    }
   };
 
-  const handleCloseRecord = (recordId) => {
-    const record = maintenanceRecords.find(r => r.id === recordId);
-    if (!record) return;
-    
-    // 1. Update record status
-    const updatedRecords = maintenanceRecords.map(r => 
-      r.id === recordId ? { ...r, status: MAINTENANCE_STATUS.COMPLETED } : r
-    );
-    
-    // 2. Restore vehicle status (if not retired)
-    const updatedVehicles = vehicles.map(v => {
-      if (v.id === record.vehicleId && v.status === VEHICLE_STATUS.IN_SHOP) {
-        return { ...v, status: VEHICLE_STATUS.AVAILABLE };
-      }
-      return v;
-    });
-    
-    saveData(updatedRecords, updatedVehicles);
+  const handleCloseRecord = async (id) => {
+    try {
+      await apiService.maintenance.close(id);
+      await loadData();
+    } catch (error) {
+      alert(`Failed to close maintenance log: ${error.message}`);
+    }
   };
+
+  if (loading) return <div className="card text-center p-6">Loading maintenance logs...</div>;
 
   return (
     <div className="maintenance-page-layout">
-      {/* Left Column: Form */}
       <div className="maintenance-left-panel">
-        <MaintenanceForm 
-          availableVehicles={availableVehicles}
-          onSubmit={handleAddRecord}
-        />
+        <MaintenanceForm onSubmit={handleAddRecord} availableVehicles={availableVehicles} />
         
-        <div className="status-flow-diagram mt-6 p-6 card">
-          <h4 className="mb-4 text-muted">Status Flow Diagram</h4>
-          <div className="flow-step">
-            <span className="badge badge-available">Available</span>
-            <span className="flow-arrow">→</span>
-            <span className="flow-text">creating active record</span>
-            <span className="flow-arrow">→</span>
-            <span className="badge badge-inshop">In Shop</span>
-          </div>
-          <div className="flow-step mt-4">
-            <span className="badge badge-inshop">In Shop</span>
-            <span className="flow-arrow">→</span>
-            <span className="flow-text">closing record (not retired)</span>
-            <span className="flow-arrow">→</span>
-            <span className="badge badge-available">Available</span>
-          </div>
-          <div className="rule-note mt-4" style={{ color: 'var(--text-muted)' }}>
-            Note: "In Shop" vehicles are removed from the dispatch pool.
+        <div className="card mt-6">
+          <h4 className="mb-4 text-muted">Workflow Rules</h4>
+          <div className="flex-col gap-4">
+            <div className="flow-step">
+              <span className="badge badge-available">Vehicle Available</span>
+              <span className="flow-arrow">→</span>
+              <span className="flow-text">Create Record</span>
+              <span className="flow-arrow">→</span>
+              <span className="badge badge-inshop">Vehicle In Shop</span>
+            </div>
+            <div className="flow-step">
+              <span className="badge badge-inshop">Vehicle In Shop</span>
+              <span className="flow-arrow">→</span>
+              <span className="flow-text">Close Record</span>
+              <span className="flow-arrow">→</span>
+              <span className="badge badge-available">Vehicle Available</span>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Right Column: Table */}
       <div className="maintenance-right-panel">
-        <div className="card table-container">
-          <div className="flex justify-between items-center mb-4">
-            <h3 style={{ margin: 0 }}>Maintenance Log</h3>
-          </div>
+        <div className="card h-full">
+          <h3 className="mb-4">Maintenance Log</h3>
           <table className="data-table">
             <thead>
               <tr>
                 <th>Vehicle</th>
-                <th>Service Type</th>
-                <th>Cost</th>
+                <th>Service</th>
+                <th>Cost (Rs)</th>
                 <th>Date</th>
                 <th>Status</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
