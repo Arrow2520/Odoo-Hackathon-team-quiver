@@ -8,10 +8,14 @@ from sqlalchemy import func
 
 from backend.database import get_db
 from backend import models, schemas
-from backend.enums import VehicleStatus, DriverStatus, TripStatus
+from backend.enums import VehicleStatus, DriverStatus, TripStatus, UserRole
+from backend.auth import require_roles
 
-router = APIRouter(tags=["Reports"])
-
+# LOCKED ENTIRE ROUTER: Only Managers and Analysts
+router = APIRouter(
+    tags=["Reports"],
+    dependencies=[Depends(require_roles(UserRole.FLEET_MANAGER, UserRole.FINANCIAL_ANALYST))]
+)
 
 @router.get("/dashboard", response_model=schemas.DashboardKPIs)
 def dashboard(
@@ -21,7 +25,7 @@ def dashboard(
 ):
     vq = db.query(models.Vehicle)
     if vehicle_type:
-        vq = vq.filter(models.Vehicle.vehicle_type == vehicle_type)  # FIXED: vehicle_type
+        vq = vq.filter(models.Vehicle.vehicle_type == vehicle_type)
     if region:
         vq = vq.filter(models.Vehicle.region == region)
 
@@ -61,7 +65,6 @@ def _compute_vehicle_reports(db: Session) -> List[schemas.VehicleReport]:
             models.FuelLog.vehicle_id == v.id
         ).scalar()
         
-        # FIXED: Changed MaintenanceLog to Maintenance
         maintenance_cost = db.query(func.coalesce(func.sum(models.Maintenance.cost), 0.0)).filter(
             models.Maintenance.vehicle_id == v.id
         ).scalar()
